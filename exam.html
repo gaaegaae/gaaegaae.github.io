@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Adafruit Current Monitoring</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      flex-direction: column;
+    }
+    canvas {
+      width: 300px !important; /* 가로 300픽셀 */
+      height: 200px !important; /* 세로 200픽셀 */
+    }
+    #noDataText {
+      display: none;
+      color: #ff0000;
+      font-size: 24px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>Current Monitoring from Adafruit IO</h1>
+  <div id="noDataText">No Data</div>
+  <canvas id="currentChart"></canvas>
+  <script>
+    // Adafruit IO 정보
+    const USERNAME = "hyeong_k1m"; // Adafruit IO 사용자 이름
+    const API_KEY = "aio_JirS58rlCktDg47i58jppc6WCnY5"; // Adafruit IO 키
+    const FEED_KEY = "current1"; // 전류 데이터를 가져올 피드 이름
+    const DATA_POINTS = 10; // 그래프에 표시할 데이터 포인트 수
+
+    // Chart.js 데이터 및 설정
+    const ctx = document.getElementById("currentChart").getContext("2d");
+    const currentChart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: [], // 시간 데이터 (x축)
+        datasets: [{
+          label: "Current (A)",
+          data: [], // 전류 데이터 (y축)
+          borderColor: "rgba(75, 192, 192, 1)",
+          backgroundColor: "rgba(75, 192, 192, 0.2)",
+          borderWidth: 2,
+          fill: true,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false, // 비율 유지 해제
+        scales: {
+          x: {
+            title: {
+              display: true,
+              text: "Time",
+            }
+          },
+          y: {
+            title: {
+              display: true,
+              text: "Current (A)",
+            },
+            min: 0, // 전류 범위의 최소값을 0으로 설정
+            max: 2, // 전류 범위의 최대값을 2로 설정
+            beginAtZero: false
+          }
+        }
+      }
+    });
+
+    // Adafruit IO에서 데이터를 가져오는 함수
+    async function fetchAdafruitData() {
+      const url = `https://io.adafruit.com/api/v2/${USERNAME}/feeds/${FEED_KEY}/data?limit=1`; // 가장 최근 데이터만 요청
+      const response = await fetch(url, {
+        headers: {
+          "X-AIO-Key": API_KEY
+        }
+      });
+
+      const currentTime = new Date().toLocaleTimeString(); // 실시간 시간
+
+      if (response.ok) {
+        const data = await response.json();
+        const currentValue = parseFloat(data[0].value); // 현재 값 (전류 값)
+        updateChart(currentValue, currentTime);
+      } else {
+        console.error("Failed to fetch data from Adafruit IO:", response.status);
+        updateChart(0, currentTime, true);
+      }
+    }
+
+    // Chart.js 업데이트 함수
+    function updateChart(currentValue, currentTime, noData = false) {
+      if (noData) {
+        document.getElementById('noDataText').style.display = 'block';
+      } else {
+        document.getElementById('noDataText').style.display = 'none';
+      }
+
+      if (currentChart.data.labels.length >= DATA_POINTS) {
+        currentChart.data.labels.shift();
+        currentChart.data.datasets[0].data.shift();
+      }
+
+      currentChart.data.labels.push(currentTime);
+      currentChart.data.datasets[0].data.push(currentValue);
+
+      currentChart.update();
+    }
+
+    // 앱인벤터에서 데이터를 가져오는 함수
+    function nockanda_forever() {
+      const recv = parseFloat(window.AppInventor.getWebViewString());
+      const currentTime = new Date().toLocaleTimeString();
+      updateChart(recv, currentTime);
+    }
+
+    // 데이터 주기적으로 갱신
+    setInterval(fetchAdafruitData, 5000); // Adafruit IO 데이터 5초마다 갱신
+    fetchAdafruitData(); // 초기 데이터 가져오기
+
+    // 앱인벤터에서 데이터를 주기적으로 처리
+    setInterval(nockanda_forever, 1000); // 앱인벤터 데이터 1초마다 갱신
+  </script>
+</body>
+</html>
